@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "python-auto-compile": "^4.5.4"
+  }
+}
