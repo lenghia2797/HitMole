@@ -1,4 +1,5 @@
 import math
+import spritesheet
 # from tkinter import HIDDEN
 from MoleStatus import MoleStatus
 import alg
@@ -37,24 +38,26 @@ mole_hands_image = pygame.image.load(r'./images/mole_hands.png')
 
 background_image = pygame.image.load(r'./images/background.jpeg')
 
+wick_sprite = pygame.image.load(r'./images/wick.png').convert_alpha()
+
 # load sound
 mixer.init()
-mixer.music.set_volume(0.2)
+mixer.music.set_volume(0.1)
 
 mixer.music.load('sounds/bgm.mp3')
-beep = mixer.Sound('sounds/beep.ogg')
-click = mixer.Sound('sounds/click.ogg')
-explode = mixer.Sound('sounds/explode.ogg')
-gain_time = mixer.Sound('sounds/gain_time.ogg')
-go = mixer.Sound('sounds/go.ogg')
-hammer = mixer.Sound('sounds/hammer.ogg')
-pop = mixer.Sound('sounds/pop.ogg')
-squeak_1 = mixer.Sound('sounds/squeak_1.ogg')
-squeak_2 = mixer.Sound('sounds/squeak_2.ogg')
-squeak_3 = mixer.Sound('sounds/squeak_3.ogg')
-swing = mixer.Sound('sounds/swing.ogg')
-timeout = mixer.Sound('sounds/timeout.ogg')
-wood_hit = mixer.Sound('sounds/wood_hit.ogg')
+beep_sound = mixer.Sound('sounds/beep.ogg')
+click_sound = mixer.Sound('sounds/click.ogg')
+explode_sound = mixer.Sound('sounds/explode.ogg')
+gain_time_sound = mixer.Sound('sounds/gain_time.ogg')
+go_sound = mixer.Sound('sounds/go.ogg')
+hammer_sound = mixer.Sound('sounds/hammer.ogg')
+pop_sound = mixer.Sound('sounds/pop.ogg')
+squeak_1_sound = mixer.Sound('sounds/squeak_1.ogg')
+squeak_2_sound = mixer.Sound('sounds/squeak_2.ogg')
+squeak_3_sound = mixer.Sound('sounds/squeak_3.ogg')
+swing_sound = mixer.Sound('sounds/swing.ogg')
+timeout_sound = mixer.Sound('sounds/timeout.ogg')
+wood_hit_sound = mixer.Sound('sounds/wood_hit.ogg')
 
 # Game setup
 WIDTH = 50
@@ -192,14 +195,23 @@ class Mole:
             self.exit()
             
     def getHit(self):
+        mixer.Sound.play(swing_sound)
         if (not self.isDead):
             self.dead()
         
     def dead(self):
+        if (random.random() < 0.33):
+            mixer.Sound.play(squeak_1_sound)
+        elif (random.random() > 0.33 and random.random() < 0.66):
+            mixer.Sound.play(squeak_2_sound)
+        else:
+            mixer.Sound.play(squeak_3_sound)
+        
         self.isDead = True
         self.changeModeToExit()
                 
     def changeModeToShowUp(self):
+        mixer.Sound.play(pop_sound)
         self.active = True
         self.visible = True
         self.status = MoleStatus.SHOW_UP
@@ -239,7 +251,7 @@ def main():
     FPS = 30
     
     mixer.music.play(-1)
-    mixer.Sound.play(beep)
+    
     while running:
         clock.tick(FPS)
             
@@ -247,16 +259,18 @@ def main():
         m_x, m_y = pygame.mouse.get_pos()
         screen.blit(background_image, (0,0))
         
+        screen.blit(wick_sprite, (0,0))
+        
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
             if event.type == pygame.MOUSEBUTTONDOWN:
                 # if touch on mole1
-                if isTouchOnRect(m_x, m_y, mole.x, mole.y, MOLE_WIDTH, MOLE_HEIGHT):
+                if isTouchOnRect(m_x, m_y, mole.x-20, mole.y-20, MOLE_WIDTH+40, MOLE_HEIGHT+40):
                     mole.getHit()
                     if (mole.isDead):
                         scoreLabel.score += 1
-                if isTouchOnRect(m_x, m_y, mole2.x, mole2.y, MOLE_WIDTH, MOLE_HEIGHT):
+                if isTouchOnRect(m_x, m_y, mole2.x-20, mole2.y-20, MOLE_WIDTH+40, MOLE_HEIGHT+40):
                     mole2.getHit()
                     if (mole2.isDead):
                         scoreLabel.score += 1
