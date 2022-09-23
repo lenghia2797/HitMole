@@ -28,6 +28,11 @@ ground_image = pygame.image.load(r'./images/ground.png')
 hammer_image = pygame.image.load(r'./images/hammer.png')
 mole1_image = pygame.image.load(r'./images/mole1.png')
 mole2_image = pygame.image.load(r'./images/mole2.png')
+
+boss_hat_image = pygame.image.load(r'./images/boss_hat.png')
+eye_image = pygame.image.load(r'./images/eye.png')
+mole_hands_image = pygame.image.load(r'./images/mole_hands.png')
+
 background_image = pygame.image.load(r'./images/background.jpeg')
 
 # Game setup
@@ -49,6 +54,21 @@ class MoleStatus(Enum):
     SHOW_UP = 1
     EXIT = 2
     WAITING = 3
+    
+class Score:
+    def __init__(self):
+        self.score = 0
+        self.text = font.render(f'Score: {self.score}', True, COLOR1, WHITE)
+        self.textRect = self.text.get_rect()
+        self.textRect.center = (100, 100)
+        
+    def update(self):
+        self.render()
+    
+    def render(self):
+        self.text = font.render(f'Score: {self.score}', True, COLOR1, WHITE)
+        
+        screen.blit(self.text, self.textRect)
 class Ground:
     def __init__(self, idx, idy):
         self.idx = idx
@@ -85,11 +105,17 @@ class Grid:
                 
     
 class Mole:
-    def __init__(self, grid, x, y):
+    def __init__(self, grid, x, y, type):
         pygame.sprite.Sprite.__init__(self)
         self.grid = grid
-        self.image = mole1_image
-        self.rect = mole1_image.get_rect()
+        self.eye = eye_image
+        self.isDead = False
+        if (type == 1):
+            self.image = mole1_image
+            self.rect = mole1_image.get_rect()
+        elif (type == 2):
+            self.image = mole2_image
+            self.rect = mole2_image.get_rect()
         screen = pygame.display.get_surface()
         self.area = screen.get_rect()
         self.x = x
@@ -109,7 +135,9 @@ class Mole:
     
     def render(self):
         if self.visible:
-            screen.blit(mole1_image, (self.x, self.y), (0, 0, MOLE_WIDTH, 1 - (self.y - self.ground.y - MOLE_HEIGHT*0.5)))
+            screen.blit(self.image, (self.x, self.y), (0, 0, MOLE_WIDTH, 1 - (self.y - self.ground.y - MOLE_HEIGHT*0.5)))
+            if (self.isDead and self.y < self.ground.y):
+                screen.blit(self.eye, (self.x + 17, self.y + 24))
             
     def teleport(self):
         groundNoMoles = list(filter(lambda x: not x.haveMole, self.grid.grounds))
@@ -130,6 +158,7 @@ class Mole:
         self.y += 15 
         if (self.y > self.ground.y + 50):
             self.ground.haveMole = False
+            self.isDead = False
             self.changeModeToHidden()
             self.teleport()
 
@@ -146,6 +175,14 @@ class Mole:
                 self.exit()
         elif (self.status == MoleStatus.EXIT):
             self.exit()
+            
+    def getHit(self):
+        if (not self.isDead):
+            self.dead()
+        
+    def dead(self):
+        self.isDead = True
+        self.changeModeToExit()
                 
     def changeModeToShowUp(self):
         self.active = True
@@ -176,13 +213,14 @@ def isTouchOnRect(x, y, rectX, rectY, rectWidth, rectHeight):
 def main():
     running = True
     grid = Grid(ROW, COL)
-    mole = Mole(grid, GROUND_TOP_LEFT_X + GROUND_WIDTH/2 - MOLE_WIDTH/2, GROUND_TOP_LEFT_Y )
-    mole2 = Mole(grid, GROUND_TOP_LEFT_X + GROUND_WIDTH/2 - MOLE_WIDTH/2, GROUND_TOP_LEFT_Y )
+    mole = Mole(grid, GROUND_TOP_LEFT_X + GROUND_WIDTH/2 - MOLE_WIDTH/2, GROUND_TOP_LEFT_Y , 1)
+    mole2 = Mole(grid, GROUND_TOP_LEFT_X + GROUND_WIDTH/2 - MOLE_WIDTH/2, GROUND_TOP_LEFT_Y , 2)
 
     mole.active = True
     mole.status = MoleStatus.SHOW_UP
 
     clock = pygame.time.Clock()
+    scoreLabel = Score()
     FPS = 30
     while running:
         clock.tick(FPS)
@@ -197,13 +235,18 @@ def main():
             if event.type == pygame.MOUSEBUTTONDOWN:
                 # if touch on mole1
                 if isTouchOnRect(m_x, m_y, mole.x, mole.y, MOLE_WIDTH, MOLE_HEIGHT):
-                    print(1, random.random())
+                    mole.getHit()
+                    if (mole.isDead):
+                        scoreLabel.score += 1
                 if isTouchOnRect(m_x, m_y, mole2.x, mole2.y, MOLE_WIDTH, MOLE_HEIGHT):
-                    print(2, random.random())
+                    mole2.getHit()
+                    if (mole2.isDead):
+                        scoreLabel.score += 1
                 
         mole.update()
         mole2.update()
         grid.update()
+        scoreLabel.update()
         pygame.display.flip()
     pygame.quit()
     
