@@ -1,5 +1,6 @@
 import math
-from tkinter import HIDDEN
+# from tkinter import HIDDEN
+from MoleStatus import MoleStatus
 import alg
 import pygame
 import time
@@ -7,6 +8,7 @@ import sys
 
 import random
 from enum import Enum
+from pygame import mixer
 
 pygame.init()
 SCREEN_WIDTH = 960
@@ -35,6 +37,25 @@ mole_hands_image = pygame.image.load(r'./images/mole_hands.png')
 
 background_image = pygame.image.load(r'./images/background.jpeg')
 
+# load sound
+mixer.init()
+mixer.music.set_volume(0.2)
+
+mixer.music.load('sounds/bgm.mp3')
+beep = mixer.Sound('sounds/beep.ogg')
+click = mixer.Sound('sounds/click.ogg')
+explode = mixer.Sound('sounds/explode.ogg')
+gain_time = mixer.Sound('sounds/gain_time.ogg')
+go = mixer.Sound('sounds/go.ogg')
+hammer = mixer.Sound('sounds/hammer.ogg')
+pop = mixer.Sound('sounds/pop.ogg')
+squeak_1 = mixer.Sound('sounds/squeak_1.ogg')
+squeak_2 = mixer.Sound('sounds/squeak_2.ogg')
+squeak_3 = mixer.Sound('sounds/squeak_3.ogg')
+swing = mixer.Sound('sounds/swing.ogg')
+timeout = mixer.Sound('sounds/timeout.ogg')
+wood_hit = mixer.Sound('sounds/wood_hit.ogg')
+
 # Game setup
 WIDTH = 50
 
@@ -49,40 +70,6 @@ PADDING_GROUND_HEIGHT = 150
 MOLE_WIDTH = 83
 MOLE_HEIGHT = 94
 
-class MoleStatus(Enum):
-    HIDDEN = 0
-    SHOW_UP = 1
-    EXIT = 2
-    WAITING = 3
-    
-class Score:
-    def __init__(self):
-        self.score = 0
-        self.text = font.render(f'Score: {self.score}', True, COLOR1, WHITE)
-        self.textRect = self.text.get_rect()
-        self.textRect.center = (100, 100)
-        
-    def update(self):
-        self.render()
-    
-    def render(self):
-        self.text = font.render(f'Score: {self.score}', True, COLOR1, WHITE)
-        
-        screen.blit(self.text, self.textRect)
-class Ground:
-    def __init__(self, idx, idy):
-        self.idx = idx
-        self.idy = idy
-        self.x = GROUND_TOP_LEFT_X + PADDING_GROUND_WIDTH*idx
-        self.y = GROUND_TOP_LEFT_Y + PADDING_GROUND_HEIGHT*idy
-        self.haveMole = False
-        
-    def update(self):
-        self.render()
-    
-    def render(self):
-        screen.blit(ground_image, (self.x, self.y))
-        
 class Grid:
     def __init__(self, row, col):
         self.row = row
@@ -102,8 +89,36 @@ class Grid:
     def render(self):
         for ground in self.grounds:
             ground.update()
-                
+
+class Score:
+    def __init__(self):
+        self.score = 0
+        self.text = font.render(f'Score: {self.score}', True, COLOR1, WHITE)
+        self.textRect = self.text.get_rect()
+        self.textRect.center = (100, 100)
+        
+    def update(self):
+        self.render()
     
+    def render(self):
+        self.text = font.render(f'Score: {self.score}', True, COLOR1, WHITE)
+        
+        screen.blit(self.text, self.textRect)
+
+class Ground:
+    def __init__(self, idx, idy):
+        self.idx = idx
+        self.idy = idy
+        self.x = GROUND_TOP_LEFT_X + PADDING_GROUND_WIDTH*idx
+        self.y = GROUND_TOP_LEFT_Y + PADDING_GROUND_HEIGHT*idy
+        self.haveMole = False
+        
+    def update(self):
+        self.render()
+    
+    def render(self):
+        screen.blit(ground_image, (self.x, self.y))
+
 class Mole:
     def __init__(self, grid, x, y, type):
         pygame.sprite.Sprite.__init__(self)
@@ -222,6 +237,9 @@ def main():
     clock = pygame.time.Clock()
     scoreLabel = Score()
     FPS = 30
+    
+    mixer.music.play(-1)
+    mixer.Sound.play(beep)
     while running:
         clock.tick(FPS)
             
