@@ -100,7 +100,7 @@ class Mole:
         self.lastWaiting = pygame.time.get_ticks()
         self.lastTeleport = pygame.time.get_ticks()
         self.waitingTime = 1500
-        self.teleportTime = 1000 * random.random()
+        self.teleportTime = 200 + 1000 * random.random()
         self.teleport()
     
     def update(self):
@@ -167,7 +167,12 @@ class Mole:
         self.active = False
         self.visible = False
         self.status = MoleStatus.HIDDEN
-        
+
+def isTouchOnRect(x, y, rectX, rectY, rectWidth, rectHeight):
+    if rectX < x and x < rectX + rectWidth and rectY < y and y < rectY + rectHeight:
+        return True
+    return False
+
 def main():
     running = True
     grid = Grid(ROW, COL)
@@ -175,9 +180,7 @@ def main():
     mole2 = Mole(grid, GROUND_TOP_LEFT_X + GROUND_WIDTH/2 - MOLE_WIDTH/2, GROUND_TOP_LEFT_Y )
 
     mole.active = True
-    mole2.active = True
     mole.status = MoleStatus.SHOW_UP
-    mole2.status = MoleStatus.SHOW_UP
 
     clock = pygame.time.Clock()
     FPS = 30
@@ -191,9 +194,12 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            # if event.type == pygame.MOUSEBUTTONDOWN:
-                # if touch on back button 
-                #
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                # if touch on mole1
+                if isTouchOnRect(m_x, m_y, mole.x, mole.y, MOLE_WIDTH, MOLE_HEIGHT):
+                    print(1, random.random())
+                if isTouchOnRect(m_x, m_y, mole2.x, mole2.y, MOLE_WIDTH, MOLE_HEIGHT):
+                    print(2, random.random())
                 
         mole.update()
         mole2.update()
