@@ -97,6 +97,10 @@ class Mole:
         self.active = False
         self.visible = True
         self.status = MoleStatus.HIDDEN
+        self.lastWaiting = pygame.time.get_ticks()
+        self.lastTeleport = pygame.time.get_ticks()
+        self.waitingTime = 1500
+        self.teleportTime = 1000 * random.random()
         self.teleport()
     
     def update(self):
@@ -105,31 +109,43 @@ class Mole:
     
     def render(self):
         if self.visible:
-            screen.blit(mole1_image, (self.x,self.y))
+            screen.blit(mole1_image, (self.x, self.y), (0, 0, MOLE_WIDTH, 1 - (self.y - self.ground.y - MOLE_HEIGHT*0.5)))
             
     def teleport(self):
         groundNoMoles = list(filter(lambda x: not x.haveMole, self.grid.grounds))
         randNumber =  math.floor(random.random() * len(groundNoMoles))
         self.ground = groundNoMoles[randNumber] 
+        self.ground.haveMole = True
         self.x = self.ground.x + GROUND_WIDTH/2 - MOLE_WIDTH/2
         self.y = self.ground.y
+        self.lastTeleport = pygame.time.get_ticks()
+        self.teleportTime = 1000 * random.random()
     
     def showUp(self):
-        pass
+        self.y -= 10
+        if (self.y < self.ground.y - MOLE_HEIGHT*0.7):
+            self.changeModeToWaiting()
+    
+    def exit(self):
+        self.y += 15 
+        if (self.y > self.ground.y + 50):
+            self.ground.haveMole = False
+            self.changeModeToHidden()
+            self.teleport()
 
     def updateFollowStatus(self):
         if (self.status == MoleStatus.HIDDEN):
-             pass
+            now = pygame.time.get_ticks()
+            if now - self.lastTeleport >= self.teleportTime:
+                self.changeModeToShowUp()
         elif (self.status == MoleStatus.SHOW_UP):
-            self.y -= 3  
-            if (self.y < self.ground.y - MOLE_HEIGHT*0.8):
-                self.changeModeToWaiting()
+            self.showUp()
         elif (self.status == MoleStatus.WAITING):
-            pass
+            now = pygame.time.get_ticks()
+            if now - self.lastWaiting >= self.waitingTime:
+                self.exit()
         elif (self.status == MoleStatus.EXIT):
-            self.y += 3  
-            if (self.y > self.ground.y):
-                self.changeModeToHidden()
+            self.exit()
                 
     def changeModeToShowUp(self):
         self.active = True
@@ -140,6 +156,7 @@ class Mole:
         self.active = True
         self.visible = True
         self.status = MoleStatus.WAITING
+        self.lastWaiting = pygame.time.get_ticks()
         
     def changeModeToExit(self):
         self.active = True
@@ -160,6 +177,8 @@ def main():
     mole.active = True
     mole2.active = True
     mole.status = MoleStatus.SHOW_UP
+    mole2.status = MoleStatus.SHOW_UP
+
     clock = pygame.time.Clock()
     FPS = 30
     while running:
