@@ -1,5 +1,4 @@
 import math
-import spritesheet
 # from tkinter import HIDDEN
 from MoleStatus import MoleStatus
 import alg
