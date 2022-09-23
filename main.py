@@ -1,8 +1,12 @@
 import math
+from tkinter import HIDDEN
 import alg
 import pygame
 import time
 import sys
+
+import random
+from enum import Enum
 
 pygame.init()
 SCREEN_WIDTH = 960
@@ -40,16 +44,50 @@ PADDING_GROUND_HEIGHT = 150
 MOLE_WIDTH = 83
 MOLE_HEIGHT = 94
 
-def draw_ground():
-    for row in range(ROW):
-        for col in range(COL): 
-            x = GROUND_TOP_LEFT_X + PADDING_GROUND_WIDTH*col
-            y = GROUND_TOP_LEFT_Y + PADDING_GROUND_HEIGHT*row
-            screen.blit(ground_image, (x, y))
-            screen.blit(ground_image, (x, y+40))
+class MoleStatus(Enum):
+    HIDDEN = 0
+    SHOW_UP = 1
+    EXIT = 2
+    WAITING = 3
+class Ground:
+    def __init__(self, idx, idy):
+        self.idx = idx
+        self.idy = idy
+        self.x = GROUND_TOP_LEFT_X + PADDING_GROUND_WIDTH*idx
+        self.y = GROUND_TOP_LEFT_Y + PADDING_GROUND_HEIGHT*idy
+        self.haveMole = False
+        
+    def update(self):
+        self.render()
+    
+    def render(self):
+        screen.blit(ground_image, (self.x, self.y))
+        
+class Grid:
+    def __init__(self, row, col):
+        self.row = row
+        self.col = col
+        self.grounds = []
+        self.createGrounds()
+        
+    def createGrounds(self):
+        for row in range(self.row):
+            for col in range(self.col):
+                ground = Ground(row, col)
+                self.grounds.append(ground)
+        
+    def update(self):
+        self.render()
+    
+    def render(self):
+        for ground in self.grounds:
+            ground.update()
+                
+    
 class Mole:
-    def __init__(self, x, y):
+    def __init__(self, grid, x, y):
         pygame.sprite.Sprite.__init__(self)
+        self.grid = grid
         self.image = mole1_image
         self.rect = mole1_image.get_rect()
         screen = pygame.display.get_surface()
@@ -58,25 +96,70 @@ class Mole:
         self.y = y
         self.active = False
         self.visible = True
+        self.status = MoleStatus.HIDDEN
+        self.teleport()
     
     def update(self):
-        if self.active:
-            self.y -= 3  
-            if (self.y < GROUND_TOP_LEFT_Y - MOLE_HEIGHT*0.8):
-                # self.active = False
-                self.y = GROUND_TOP_LEFT_Y
-            self.render()
+        self.updateFollowStatus()
+        self.render()
     
     def render(self):
         if self.visible:
             screen.blit(mole1_image, (self.x,self.y))
+            
+    def teleport(self):
+        groundNoMoles = list(filter(lambda x: not x.haveMole, self.grid.grounds))
+        randNumber =  math.floor(random.random() * len(groundNoMoles))
+        self.ground = groundNoMoles[randNumber] 
+        self.x = self.ground.x + GROUND_WIDTH/2 - MOLE_WIDTH/2
+        self.y = self.ground.y
+    
+    def showUp(self):
+        pass
+
+    def updateFollowStatus(self):
+        if (self.status == MoleStatus.HIDDEN):
+             pass
+        elif (self.status == MoleStatus.SHOW_UP):
+            self.y -= 3  
+            if (self.y < self.ground.y - MOLE_HEIGHT*0.8):
+                self.changeModeToWaiting()
+        elif (self.status == MoleStatus.WAITING):
+            pass
+        elif (self.status == MoleStatus.EXIT):
+            self.y += 3  
+            if (self.y > self.ground.y):
+                self.changeModeToHidden()
+                
+    def changeModeToShowUp(self):
+        self.active = True
+        self.visible = True
+        self.status = MoleStatus.SHOW_UP
         
-
-
+    def changeModeToWaiting(self):
+        self.active = True
+        self.visible = True
+        self.status = MoleStatus.WAITING
+        
+    def changeModeToExit(self):
+        self.active = True
+        self.visible = True
+        self.status = MoleStatus.EXIT
+        
+    def changeModeToHidden(self):
+        self.active = False
+        self.visible = False
+        self.status = MoleStatus.HIDDEN
+        
 def main():
     running = True
-    mole = Mole(GROUND_TOP_LEFT_X + GROUND_WIDTH/2 - MOLE_WIDTH/2, GROUND_TOP_LEFT_Y )
+    grid = Grid(ROW, COL)
+    mole = Mole(grid, GROUND_TOP_LEFT_X + GROUND_WIDTH/2 - MOLE_WIDTH/2, GROUND_TOP_LEFT_Y )
+    mole2 = Mole(grid, GROUND_TOP_LEFT_X + GROUND_WIDTH/2 - MOLE_WIDTH/2, GROUND_TOP_LEFT_Y )
+
     mole.active = True
+    mole2.active = True
+    mole.status = MoleStatus.SHOW_UP
     clock = pygame.time.Clock()
     FPS = 30
     while running:
@@ -94,7 +177,8 @@ def main():
                 #
                 
         mole.update()
-        draw_ground()
+        mole2.update()
+        grid.update()
         pygame.display.flip()
     pygame.quit()
     
