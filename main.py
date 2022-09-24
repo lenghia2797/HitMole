@@ -148,6 +148,9 @@ class Mole:
         self.isHaveHat = self.isHard
         self.lives = 1
         self.type = type
+        self.isShake = False
+        self.shakeLeft = True
+        self.rawX = 0
         if (type == 1):
             self.image = mole1_image
             self.rect = mole1_image.get_rect()
@@ -163,6 +166,8 @@ class Mole:
         self.status = MoleStatus.HIDDEN
         self.lastWaiting = pygame.time.get_ticks()
         self.lastTeleport = pygame.time.get_ticks()
+        self.lastShake = pygame.time.get_ticks()
+        self.shakeTime = 200
         self.waitingTime = 1500
         self.teleportTime = 200 + 1500 * random.random()
         if (self.type == 3):
@@ -186,7 +191,8 @@ class Mole:
         randNumber =  math.floor(random.random() * len(groundNoMoles))
         self.ground = groundNoMoles[randNumber] 
         self.ground.haveMole = True
-        self.x = self.ground.x + GROUND_WIDTH/2 - MOLE_WIDTH/2
+        self.rawX = self.ground.x + GROUND_WIDTH/2 - MOLE_WIDTH/2
+        self.x = self.rawX
         self.y = self.ground.y
         self.lastTeleport = pygame.time.get_ticks()
         self.teleportTime = 200 + 1500 * random.random()
@@ -207,10 +213,11 @@ class Mole:
     def spawn(self):
         self.changeModeToHidden()
         self.isDead = False
+        self.isShake = False
         self.teleport()
         if (random.random() < 0.5):
             self.isHard = True
-            self.lives = 2
+            self.lives = 3
         else:
             self.isHard = False
             self.lives = 1
@@ -225,17 +232,34 @@ class Mole:
             self.showUp()
         elif (self.status == MoleStatus.WAITING):
             now = pygame.time.get_ticks()
+            self.shake()
             if now - self.lastWaiting >= self.waitingTime:
                 self.changeModeToExit()
                 Miss.miss += 1
         elif (self.status == MoleStatus.EXIT):
             self.exit()
             
+    def shake(self):
+        if (self.isShake):
+            if (self.shakeLeft):
+                self.x -= 5
+            else:
+                self.x += 5
+            if (self.x < self.rawX - 8):
+                self.shakeLeft = False
+            if (self.x > self.rawX + 8):
+                self.shakeLeft = True
+            now = pygame.time.get_ticks()
+            if (now - self.lastShake > self.shakeTime):
+                self.isShake = False
+            
     def getHit(self):
         mixer.Sound.play(swing_sound)
         self.lives -= 1
-        if (self.lives == 1):
-            self.isHaveHat = False
+        if (self.isHaveHat):
+            mixer.Sound.play(wood_hit_sound)
+            self.isShake = True
+            self.lastShake = pygame.time.get_ticks()
         if (self.lives <= 0 and not self.isDead):
             self.dead()
         
@@ -308,21 +332,21 @@ def main():
                     mole.getHit()
                     if (mole.isDead):
                         if (mole.isHard):
-                            scoreLabel.score += 2
+                            scoreLabel.score += 3
                         else:
                             scoreLabel.score += 1
                 if isTouchOnRect(m_x, m_y, mole2.x-20, mole2.y-20, MOLE_WIDTH+40, MOLE_HEIGHT+40):
                     mole2.getHit()
                     if (mole2.isDead):
                         if (mole2.isHard):
-                            scoreLabel.score += 2
+                            scoreLabel.score += 3
                         else:
                             scoreLabel.score += 1
                 if isTouchOnRect(m_x, m_y, mole3.x-20, mole3.y-20, MOLE_WIDTH+40, MOLE_HEIGHT+40):
                     mole3.getHit()
                     if (mole3.isDead):
                         if (mole3.isHard):
-                            scoreLabel.score += 2
+                            scoreLabel.score += 3
                         else:
                             scoreLabel.score += 1
                 
