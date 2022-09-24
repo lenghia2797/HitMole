@@ -1,6 +1,6 @@
 import math
 # from tkinter import HIDDEN
-from MoleStatus import MoleStatus
+from MoleStatus import MoleStatus, MoleType
 import pygame
 import time
 import sys
@@ -34,6 +34,11 @@ boss_hat_image = pygame.image.load(r'./images/boss_hat.png')
 hard_hat_image = pygame.image.load(r'./images/hardhat.png')
 eye_image = pygame.image.load(r'./images/eye.png')
 mole_hands_image = pygame.image.load(r'./images/mole_hands.png')
+
+play_button_image = pygame.image.load(r'./images/first_play_button.png')
+gui_1_image = pygame.image.load(r'./images/gui_1.png')
+gui_2_image = pygame.image.load(r'./images/gui_2.png')
+time_over_image = pygame.image.load(r'./images/timeover.png')
 
 background_image = pygame.image.load(r'./images/background.jpeg')
 
@@ -71,6 +76,10 @@ PADDING_GROUND_WIDTH = 190
 PADDING_GROUND_HEIGHT = 150
 MOLE_WIDTH = 83
 MOLE_HEIGHT = 94
+PLAY_BUTTON_WIDTH = 296
+PLAY_BUTTON_HEIGHT = 116
+BOMB_WIDTH = 106
+BOMB_HEIGHT = 97
 
 class Grid:
     def __init__(self, row, col):
@@ -92,7 +101,7 @@ class Grid:
         for ground in self.grounds:
             ground.update()
 
-class Score:
+class ScoreLabel:
     def __init__(self):
         self.score = 0
         self.text = font.render(f'Score: {self.score}', True, COLOR1, WHITE)
@@ -107,10 +116,25 @@ class Score:
         
         screen.blit(self.text, self.textRect)
         
-class Miss:
-    miss = 0
+class EscapeLabel:
+    escape = 0
     def __init__(self):
-        self.text = font.render(f'Escape: {Miss.miss}', True, COLOR1, WHITE)
+        self.text = font.render(f'Escape: {EscapeLabel.escape}', True, COLOR1, WHITE)
+        self.textRect = self.text.get_rect()
+        self.textRect.center = (100, 200)
+        
+    def update(self):
+        self.render()
+    
+    def render(self):
+        self.text = font.render(f'Escape: {EscapeLabel.escape}', True, COLOR1, WHITE)
+        
+        screen.blit(self.text, self.textRect)
+
+class TimeLabel:
+    time = 0
+    def __init__(self):
+        self.text = font.render(f'Time: {TimeLabel.time}', True, COLOR1, WHITE)
         self.textRect = self.text.get_rect()
         self.textRect.center = (100, 300)
         
@@ -118,7 +142,7 @@ class Miss:
         self.render()
     
     def render(self):
-        self.text = font.render(f'Escape: {Miss.miss}', True, COLOR1, WHITE)
+        self.text = font.render(f'Time: {TimeLabel.time}', True, COLOR1, WHITE)
         
         screen.blit(self.text, self.textRect)
 
@@ -150,36 +174,48 @@ class Mole:
         self.isShake = False
         self.shakeLeft = True
         self.rawX = 0
-        if (type == 1):
+        self.width = MOLE_WIDTH
+        self.height = MOLE_HEIGHT
+        if (type == MoleType.NORMAL):
             self.image = mole1_image
             self.rect = mole1_image.get_rect()
-        else:
+        elif (type == MoleType.NORMAL_2 or type == MoleType.NORMAL_3):
             self.image = mole2_image
             self.rect = mole2_image.get_rect()
+        elif (type == MoleType.BOMB):
+            self.image = bomb_image
+            self.rect = bomb_image.get_rect()
+            self.width = BOMB_WIDTH
+            self.height = BOMB_HEIGHT
         screen = pygame.display.get_surface()
         self.area = screen.get_rect()
         self.x = x
         self.y = y
         self.active = False
-        self.visible = True
-        self.status = MoleStatus.HIDDEN
+        self.visible = False
+        self.status = MoleStatus.NOT_START
         self.lastWaiting = pygame.time.get_ticks()
         self.lastTeleport = pygame.time.get_ticks()
         self.lastShake = pygame.time.get_ticks()
         self.shakeTime = 200
         self.waitingTime = 1500
+        self.resetTeleportTime()
+        self.respawn()  
+        
+    def resetTeleportTime(self):
         self.teleportTime = 200 + 1500 * random.random()
-        if (self.type == 3):
-            self.teleportTime = 2000 + 1000 * random.random()
-        self.spawn()
+        if (self.type == MoleType.NORMAL_3):
+            self.teleportTime = 4000 + 1000 * random.random()
+        if (self.type == MoleType.BOMB):
+            self.teleportTime = 3000 + 1000 * random.random()
     
-    def update(self):
-        self.updateFollowStatus()
+    def update(self, deltaTime):
+        self.updateFollowStatus(deltaTime)
         self.render()
     
     def render(self):
         if self.visible:
-            screen.blit(self.image, (self.x, self.y), (0, 0, MOLE_WIDTH, 1 - (self.y - self.ground.y - MOLE_HEIGHT*0.5)))
+            screen.blit(self.image, (self.x, self.y), (0, 0, self.width, 1 - (self.y - self.ground.y - self.height*0.5)))
             if (self.isDead and self.y < self.ground.y):
                 screen.blit(self.eye, (self.x + 17, self.y + 24))
             if (self.isHaveHat and self.y < self.ground.y):
@@ -187,63 +223,66 @@ class Mole:
             
     def teleport(self):
         groundNoMoles = list(filter(lambda x: not x.haveMole, self.grid.grounds))
+        print('>', len(groundNoMoles))
         randNumber =  math.floor(random.random() * len(groundNoMoles))
         self.ground = groundNoMoles[randNumber] 
         self.ground.haveMole = True
-        self.rawX = self.ground.x + GROUND_WIDTH/2 - MOLE_WIDTH/2
+        self.rawX = self.ground.x + GROUND_WIDTH/2 - self.width/2
         self.x = self.rawX
         self.y = self.ground.y
         self.lastTeleport = pygame.time.get_ticks()
-        self.teleportTime = 200 + 1500 * random.random()
-        if (self.type == 3):
-            self.teleportTime = 2000 + 1000 * random.random()
+        self.resetTeleportTime()
         
-    def showUp(self):
-        self.y -= 10
-        if (self.y < self.ground.y - MOLE_HEIGHT*0.7):
+    def showUp(self, deltaTime):
+        self.y -= 10 / 33 * deltaTime
+        if (self.y < self.ground.y - self.height*0.7):
             self.changeModeToWaiting()
     
-    def exit(self):
-        self.y += 15 
+    def exit(self, deltaTime):
+        self.y += 15 / 33 * deltaTime
         if (self.y > self.ground.y + 50):
             self.ground.haveMole = False
-            self.spawn()
+            self.respawn()
     
-    def spawn(self):
+    def respawn(self):
         self.changeModeToHidden()
         self.isDead = False
         self.isShake = False
         self.teleport()
-        if (random.random() < 0.5):
+        if (random.random() < 0.5 and self.type is not MoleType.BOMB):
             self.isHard = True
             self.lives = 3
         else:
             self.isHard = False
             self.lives = 1
         self.isHaveHat = self.isHard
+        
+    def destroy(self):
+        self.changeModeToNotStart()
+        self.ground.haveMole = False
 
-    def updateFollowStatus(self):
+    def updateFollowStatus(self, deltaTime):
         if (self.status == MoleStatus.HIDDEN):
             now = pygame.time.get_ticks()
             if now - self.lastTeleport >= self.teleportTime:
                 self.changeModeToShowUp()
         elif (self.status == MoleStatus.SHOW_UP):
-            self.showUp()
+            self.showUp(deltaTime)
         elif (self.status == MoleStatus.WAITING):
             now = pygame.time.get_ticks()
-            self.shake()
+            self.shake(deltaTime)
             if now - self.lastWaiting >= self.waitingTime:
                 self.changeModeToExit()
-                Miss.miss += 1
+                EscapeLabel.escape += 1
         elif (self.status == MoleStatus.EXIT):
-            self.exit()
+            self.exit(deltaTime)
             
-    def shake(self):
+    def shake(self, deltaTime):
         if (self.isShake):
             if (self.shakeLeft):
-                self.x -= 5
+                self.x -= 5 / 33 * deltaTime
             else:
-                self.x += 5
+                self.x += 5 / 33 * deltaTime
             if (self.x < self.rawX - 8):
                 self.shakeLeft = False
             if (self.x > self.rawX + 8):
@@ -293,6 +332,24 @@ class Mole:
         self.active = False
         self.visible = False
         self.status = MoleStatus.HIDDEN
+        
+    def changeModeToNotStart(self):
+        self.active = False
+        self.visible = False
+        self.status = MoleStatus.NOT_START
+
+class PlayButton:
+    def __init__(self):
+        self.x = SCREEN_WIDTH*0.05
+        self.y = SCREEN_HEIGHT*0.6
+        self.visible = True
+        
+    def update(self):
+        self.render()
+    
+    def render(self):
+        if (self.visible):
+            screen.blit(play_button_image, (self.x, self.y))
 
 def isTouchOnRect(x, y, rectX, rectY, rectWidth, rectHeight):
     if rectX < x and x < rectX + rectWidth and rectY < y and y < rectY + rectHeight:
@@ -300,60 +357,89 @@ def isTouchOnRect(x, y, rectX, rectY, rectWidth, rectHeight):
     return False
 
 def main():
+    gameOver = True
     running = True
     grid = Grid(ROW, COL)
-    mole = Mole(grid, GROUND_TOP_LEFT_X + GROUND_WIDTH/2 - MOLE_WIDTH/2, GROUND_TOP_LEFT_Y , 1)
-    mole2 = Mole(grid, GROUND_TOP_LEFT_X + GROUND_WIDTH/2 - MOLE_WIDTH/2, GROUND_TOP_LEFT_Y , 2)
-    mole3 = Mole(grid, GROUND_TOP_LEFT_X + GROUND_WIDTH/2 - MOLE_WIDTH/2, GROUND_TOP_LEFT_Y , 3)
+    mole = Mole(grid, GROUND_TOP_LEFT_X + GROUND_WIDTH/2 - MOLE_WIDTH/2, GROUND_TOP_LEFT_Y , MoleType.NORMAL)
+    mole2 = Mole(grid, GROUND_TOP_LEFT_X + GROUND_WIDTH/2 - MOLE_WIDTH/2, GROUND_TOP_LEFT_Y , MoleType.NORMAL_2)
+    mole3 = Mole(grid, GROUND_TOP_LEFT_X + GROUND_WIDTH/2 - MOLE_WIDTH/2, GROUND_TOP_LEFT_Y , MoleType.NORMAL_3)
+    bomb = Mole(grid, GROUND_TOP_LEFT_X + GROUND_WIDTH/2 - BOMB_WIDTH/2, GROUND_TOP_LEFT_Y , MoleType.BOMB)
 
     clock = pygame.time.Clock()
-    scoreLabel = Score()
-    missLabel = Miss()
-    FPS = 30
+    scoreLabel = ScoreLabel()
+    escapeLabel = EscapeLabel()
+    playButton = PlayButton()
+    FPS = 20
+    
+    lastTime = pygame.time.get_ticks()
+    deltaTime = 0
     
     mixer.music.play(-1)
-    
     while running:
         clock.tick(FPS)
+        now = pygame.time.get_ticks()
+        deltaTime = now - lastTime
+        lastTime = pygame.time.get_ticks()
+        # print(deltaTime)
             
         screen.fill(GREY)
         m_x, m_y = pygame.mouse.get_pos()
         screen.blit(background_image, (0,0))
         
-        screen.blit(wick_sprite, (0,0))
-        
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
             if event.type == pygame.MOUSEBUTTONDOWN:
-                # if touch on mole1
-                if isTouchOnRect(m_x, m_y, mole.x-20, mole.y-20, MOLE_WIDTH+40, MOLE_HEIGHT+40):
-                    mole.getHit()
-                    if (mole.isDead):
-                        if (mole.isHard):
-                            scoreLabel.score += 3
-                        else:
-                            scoreLabel.score += 1
-                if isTouchOnRect(m_x, m_y, mole2.x-20, mole2.y-20, MOLE_WIDTH+40, MOLE_HEIGHT+40):
-                    mole2.getHit()
-                    if (mole2.isDead):
-                        if (mole2.isHard):
-                            scoreLabel.score += 3
-                        else:
-                            scoreLabel.score += 1
-                if isTouchOnRect(m_x, m_y, mole3.x-20, mole3.y-20, MOLE_WIDTH+40, MOLE_HEIGHT+40):
-                    mole3.getHit()
-                    if (mole3.isDead):
-                        if (mole3.isHard):
-                            scoreLabel.score += 3
-                        else:
-                            scoreLabel.score += 1
+                print(random.random())
                 
-        mole.update()
-        mole2.update()
-        grid.update()
+                if (not gameOver):
+                    if isTouchOnRect(m_x, m_y, mole.x-20, mole.y-20, mole.width+40, mole.height+40):
+                        mole.getHit()
+                        if (mole.isDead):
+                            if (mole.isHard):
+                                scoreLabel.score += 3
+                            else:
+                                scoreLabel.score += 1
+                    if isTouchOnRect(m_x, m_y, mole2.x-20, mole2.y-20, mole2.width+40, mole2.height+40):
+                        mole2.getHit()
+                        if (mole2.isDead):
+                            if (mole2.isHard):
+                                scoreLabel.score += 3
+                            else:
+                                scoreLabel.score += 1
+                    if isTouchOnRect(m_x, m_y, mole3.x-20, mole3.y-20, mole3.width+40, mole3.height+40):
+                        mole3.getHit()
+                        if (mole3.isDead):
+                            if (mole3.isHard):
+                                scoreLabel.score += 3
+                            else:
+                                scoreLabel.score += 1
+                    if isTouchOnRect(m_x, m_y, bomb.x-20, bomb.y-20, bomb.width+40, bomb.height+40):
+                        gameOver = True
+                        playButton.visible = True
+                        mole.destroy()
+                        mole2.destroy()
+                        mole3.destroy()
+                        bomb.destroy()
+                else:
+                    if isTouchOnRect(m_x, m_y, playButton.x, playButton.y, PLAY_BUTTON_WIDTH, PLAY_BUTTON_HEIGHT):
+                        gameOver = False
+                        scoreLabel.score = 0
+                        EscapeLabel.escape = 0
+                        playButton.visible = False
+                        mole.respawn()
+                        mole2.respawn()
+                        mole3.respawn()
+                        bomb.respawn()
+        if (not gameOver):
+            mole.update(deltaTime)
+            mole2.update(deltaTime)
+            mole3.update(deltaTime)
+            bomb.update(deltaTime)
+            grid.update()
         scoreLabel.update()
-        missLabel.update()
+        escapeLabel.update()
+        playButton.update()
         pygame.display.flip()
     pygame.quit()
     
