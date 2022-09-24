@@ -1,7 +1,6 @@
 import math
 # from tkinter import HIDDEN
 from MoleStatus import MoleStatus
-import alg
 import pygame
 import time
 import sys
