@@ -110,7 +110,7 @@ class Score:
 class Miss:
     miss = 0
     def __init__(self):
-        self.text = font.render(f'Miss: {Miss.miss}', True, COLOR1, WHITE)
+        self.text = font.render(f'Escape: {Miss.miss}', True, COLOR1, WHITE)
         self.textRect = self.text.get_rect()
         self.textRect.center = (100, 300)
         
@@ -118,7 +118,7 @@ class Miss:
         self.render()
     
     def render(self):
-        self.text = font.render(f'Miss: {Miss.miss}', True, COLOR1, WHITE)
+        self.text = font.render(f'Escape: {Miss.miss}', True, COLOR1, WHITE)
         
         screen.blit(self.text, self.textRect)
 
