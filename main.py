@@ -223,7 +223,6 @@ class Mole:
             
     def teleport(self):
         groundNoMoles = list(filter(lambda x: not x.haveMole, self.grid.grounds))
-        print('>', len(groundNoMoles))
         randNumber =  math.floor(random.random() * len(groundNoMoles))
         self.ground = groundNoMoles[randNumber] 
         self.ground.haveMole = True
