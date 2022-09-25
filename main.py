@@ -198,6 +198,49 @@ class Ground:
     def render(self):
         screen.blit(ground_image, (self.x, self.y))
 
+class Animation:
+    def __init__(self, frames, duration, repeat):
+        self.isRun = False
+        self.frames = frames
+        self.frameIndex = 0
+        self.duration = duration
+        self.timePerFrame = 0
+        self.repeat = repeat
+        self.totalFrame = len(self.frames)
+        if (self.totalFrame > 0):
+            self.timePerFrame = duration / self.totalFrame
+            self.currentFrame = self.frames[0]
+        self.lastRun = pygame.time.get_ticks()
+        self.lastFrameRun = pygame.time.get_ticks()
+
+    def update(self):
+        if (self.isRun):
+            now = pygame.time.get_ticks()
+            if (now - self.lastFrameRun > self.timePerFrame):
+                self.updateNextFrame()
+            if (now - self.lastRun > self.duration):
+                self.isRun = False
+    
+    def updateNextFrame(self):
+        now = pygame.time.get_ticks()
+
+        if self.frameIndex < self.totalFrame - 1:
+            self.frameIndex += 1
+            self.currentFrame = self.frames[self.frameIndex]
+            self.lastFrameRun = now
+        elif self.frameIndex == self.totalFrame - 1:
+            self.frameIndex = 0
+            self.currentFrame = self.frames[0]
+            self.lastFrameRun = now
+            
+    def run(self):
+        self.isRun = True
+        self.lastRun =  pygame.time.get_ticks()
+        self.lastFrameRun = pygame.time.get_ticks()
+    
+    def stop(self):
+        self.isRun = False
+
 class Mole:
     def __init__(self, grid, x, y, type):
         pygame.sprite.Sprite.__init__(self)
@@ -214,8 +257,8 @@ class Mole:
         self.rawX = 0
         self.width = MOLE_WIDTH
         self.height = MOLE_HEIGHT
-        self.wick_image = wick_0_image
-        self.isWick = False
+        self.wick_animation = Animation([wick_0_image, wick_1_image, wick_2_image, wick_3_image, wick_4_image],
+                                        500, 0)
         if (type == MoleType.NORMAL):
             self.image = mole1_image
             self.rect = mole1_image.get_rect()
@@ -237,11 +280,8 @@ class Mole:
         self.lastWaiting = pygame.time.get_ticks()
         self.lastTeleport = pygame.time.get_ticks()
         self.lastShake = pygame.time.get_ticks()
-        self.lastWick = pygame.time.get_ticks()
-        self.lastFrameWick = pygame.time.get_ticks()
         self.shakeTime = 200
         self.waitingTime = 1500
-        self.wick_index = 0
         self.resetTeleportTime()
         self.respawn()  
         
@@ -263,8 +303,8 @@ class Mole:
                 screen.blit(self.eye, (self.x + 17, self.y + 24))
             if (self.isHaveHat and self.y < self.ground.y):
                 screen.blit(self.hard_hat, (self.x + 8, self.y - 15))
-            if (self.isWick and self.y < self.ground.y):
-                screen.blit(self.wick_image , (self.x, self.y - WICK_FRAME_WIDTH/2))
+            if (self.wick_animation.isRun and self.y < self.ground.y):
+                screen.blit(self.wick_animation.currentFrame , (self.x, self.y - WICK_FRAME_WIDTH/2))
             
     def teleport(self):
         groundNoMoles = list(filter(lambda x: not x.haveMole, self.grid.grounds))
@@ -293,9 +333,7 @@ class Mole:
         self.changeModeToHidden()
         self.isDead = False
         self.isShake = False
-        self.isWick = False
-        self.wick_index = 0
-        self.wick_image = wick_0_image
+        self.wick_animation.stop()
         self.teleport()
         if (random.random() < 0.3 and self.type is not MoleType.BOMB):
             self.isHard = True
@@ -310,9 +348,7 @@ class Mole:
         self.ground.haveMole = False
         self.isDead = True
         self.isShake = False
-        self.isWick = False
-        self.wick_index = 0
-        self.wick_image = wick_0_image
+        self.wick_animation.stop()
 
     def updateFollowStatus(self, deltaTime):
         if (self.status == MoleStatus.HIDDEN):
@@ -324,39 +360,12 @@ class Mole:
         elif (self.status == MoleStatus.WAITING):
             now = pygame.time.get_ticks()
             self.shake(deltaTime)
-            self.wick()
+            self.wick_animation.update()
             if now - self.lastWaiting >= self.waitingTime:
                 self.changeModeToExit()
                 EscapeLabel.escape += 1
         elif (self.status == MoleStatus.EXIT):
             self.exit(deltaTime)
-            
-    def wick(self):
-        if (self.isWick):
-            now = pygame.time.get_ticks()
-            if (now - self.lastFrameWick > 50):
-                if (self.wick_index == 0):
-                    self.wick_index = 1
-                    self.wick_image = wick_1_image
-                    self.lastFrameWick = now
-                elif (self.wick_index == 1):
-                    self.wick_index = 2
-                    self.wick_image = wick_2_image
-                    self.lastFrameWick = now
-                elif (self.wick_index == 2):
-                    self.wick_index = 3
-                    self.wick_image = wick_3_image
-                    self.lastFrameWick = now
-                elif (self.wick_index == 3):
-                    self.wick_index = 4
-                    self.wick_image = wick_4_image
-                    self.lastFrameWick = now
-                elif (self.wick_index == 4):
-                    self.wick_index = 0
-                    self.wick_image = wick_0_image
-                    self.lastFrameWick = now
-            if (now - self.lastWick > 500):
-                self.isWick = False
             
     def shake(self, deltaTime):
         if (self.isShake):
@@ -380,9 +389,7 @@ class Mole:
             mixer.Sound.play(wood_hit_sound)
             self.isShake = True
             self.lastShake = pygame.time.get_ticks()
-            self.isWick = True
-            self.lastWick = pygame.time.get_ticks()
-            self.lastFrameWick = pygame.time.get_ticks()
+            self.wick_animation.run()
         if (self.lives <= 0 and not self.isDead):
             self.dead()
         if (self.isDead):
