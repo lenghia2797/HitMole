@@ -47,6 +47,9 @@ background_image = pygame.image.load(r'./images/background.jpeg')
 wick_sprite = pygame.image.load(r'./images/wick.png').convert_alpha()
 wick_sprite_sheet = SpriteSheet(wick_sprite)
 
+hammer_sprite = pygame.image.load(r'./images/hammer.png').convert_alpha()
+hammer_sprite_sheet = SpriteSheet(hammer_sprite)
+
 # load sound
 mixer.init()
 mixer.music.set_volume(0.1)
@@ -87,6 +90,8 @@ TIME_OVER_WIDTH = 700/2
 TIME_OVER_HEIGHT = 204/2
 WICK_FRAME_WIDTH = 90
 WICK_FRAME_HEIGHT = 90
+HAMMER_FRAME_WIDTH = 237
+HAMMER_FRAME_HEIGHT = 212
 
 time_over_image = pygame.transform.scale(time_over_image, (TIME_OVER_WIDTH, TIME_OVER_HEIGHT))
 
@@ -96,6 +101,26 @@ wick_2_image = wick_sprite_sheet.get_image(2, WICK_FRAME_WIDTH, WICK_FRAME_HEIGH
 wick_3_image = wick_sprite_sheet.get_image(3, WICK_FRAME_WIDTH, WICK_FRAME_HEIGHT, 1, BLACK)
 wick_4_image = wick_sprite_sheet.get_image(4, WICK_FRAME_WIDTH, WICK_FRAME_HEIGHT, 1, BLACK)
 
+hammer_0_image = hammer_sprite_sheet.get_image(0, HAMMER_FRAME_WIDTH, HAMMER_FRAME_HEIGHT, 1, BLACK)
+hammer_1_image = hammer_sprite_sheet.get_image(1, HAMMER_FRAME_WIDTH, HAMMER_FRAME_HEIGHT, 1, BLACK)
+hammer_2_image = hammer_sprite_sheet.get_image(2, HAMMER_FRAME_WIDTH, HAMMER_FRAME_HEIGHT, 1, BLACK)
+hammer_3_image = hammer_sprite_sheet.get_image(3, HAMMER_FRAME_WIDTH, HAMMER_FRAME_HEIGHT, 1, BLACK)
+hammer_4_image = hammer_sprite_sheet.get_image(4, HAMMER_FRAME_WIDTH, HAMMER_FRAME_HEIGHT, 1, BLACK)
+hammer_5_image = hammer_sprite_sheet.get_image(5, HAMMER_FRAME_WIDTH, HAMMER_FRAME_HEIGHT, 1, BLACK)
+
+class Ground:
+    def __init__(self, idx, idy):
+        self.idx = idx
+        self.idy = idy
+        self.x = GROUND_TOP_LEFT_X + PADDING_GROUND_WIDTH*idx
+        self.y = GROUND_TOP_LEFT_Y + PADDING_GROUND_HEIGHT*idy
+        self.haveMole = False
+        
+    def update(self):
+        self.render()
+    
+    def render(self):
+        screen.blit(ground_image, (self.x, self.y))
 class Grid:
     def __init__(self, row, col):
         self.row = row
@@ -114,7 +139,12 @@ class Grid:
     
     def render(self):
         for ground in self.grounds:
-            ground.update()
+            ground.render()
+            
+    def getGroundLocation(self, row, col):
+        for ground in self.grounds:
+            if ground.idx == row and ground.idy == col:
+                return ground.x, ground.y
 
 class ScoreLabel:
     score = 0
@@ -184,20 +214,6 @@ class TimeLabel:
     def stop(self):
         self.isRun = False
 
-class Ground:
-    def __init__(self, idx, idy):
-        self.idx = idx
-        self.idy = idy
-        self.x = GROUND_TOP_LEFT_X + PADDING_GROUND_WIDTH*idx
-        self.y = GROUND_TOP_LEFT_Y + PADDING_GROUND_HEIGHT*idy
-        self.haveMole = False
-        
-    def update(self):
-        self.render()
-    
-    def render(self):
-        screen.blit(ground_image, (self.x, self.y))
-
 class Animation:
     def __init__(self, frames, duration, repeat):
         self.isRun = False
@@ -220,6 +236,8 @@ class Animation:
                 self.updateNextFrame()
             if (now - self.lastRun > self.duration):
                 self.isRun = False
+                self.frameIndex = 0
+                self.currentFrame = self.frames[0]
     
     def updateNextFrame(self):
         now = pygame.time.get_ticks()
@@ -241,6 +259,29 @@ class Animation:
     def stop(self):
         self.isRun = False
 
+
+class Hammer:
+    def __init__(self, idx, idy, grid):
+        self.idx = idx
+        self.idy = idy
+        self.grid: Grid = grid
+        self.hammer_animation = Animation([hammer_0_image, hammer_1_image, hammer_2_image, hammer_3_image, hammer_4_image],
+                                     200, 0)
+    
+    def update(self):
+        self.hammer_animation.update()
+        self.render()
+    
+    def render(self):
+        if self.hammer_animation.isRun:
+            groundLocation = self.grid.getGroundLocation(self.idx, self.idy)
+            screen.blit(self.hammer_animation.currentFrame, (groundLocation[0], groundLocation[1] - 180))
+           
+    def hit(self, idx, idy):
+        self.idx = idx
+        self.idy = idy
+        self.hammer_animation.run()
+    
 class Mole:
     def __init__(self, grid, x, y, type):
         pygame.sprite.Sprite.__init__(self)
@@ -283,6 +324,8 @@ class Mole:
         self.shakeTime = 200
         self.waitingTime = 1500
         self.resetTeleportTime()
+        self.onHit = False
+        self.lastHit = pygame.time.get_ticks()
         self.respawn()  
         
     def resetTeleportTime(self):
@@ -293,6 +336,10 @@ class Mole:
             self.teleportTime = 2000 + 2000 * random.random()
     
     def update(self, deltaTime):
+        now = pygame.time.get_ticks()
+        if now - self.lastHit > 100 and self.onHit:
+            self.onHit = False
+            self.getHit()
         self.updateFollowStatus(deltaTime)
         self.render()
     
@@ -324,8 +371,8 @@ class Mole:
             self.changeModeToWaiting()
     
     def exit(self, deltaTime):
-        self.y += 15 / 33 * deltaTime
-        if (self.y > self.ground.y + 50):
+        self.y += 10 / 33 * deltaTime
+        if (self.y > self.ground.y + 20):
             self.ground.haveMole = False
             self.respawn()
     
@@ -435,9 +482,11 @@ class Mole:
         self.visible = False
         self.status = MoleStatus.NOT_START
         
-    def processInput(self, m_x, m_y):
+    def processInput(self, m_x, m_y, hammer):
         if (self.visible and isTouchOnRect(m_x, m_y, self.x-20, self.y-20, self.width+40, self.height+40)):
-            self.getHit()
+            self.onHit = True
+            self.lastHit = pygame.time.get_ticks()
+            hammer.hit(self.ground.idx, self.ground.idy)
 
 class PlayButton:
     def __init__(self):
@@ -473,6 +522,7 @@ def main():
     escapeLabel = EscapeLabel()
     timeLabel = TimeLabel(15)
     playButton = PlayButton()
+    hammer = Hammer(0, 0, grid)
     FPS = 20
     
     lastTime = pygame.time.get_ticks()
@@ -494,15 +544,14 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
             if event.type == pygame.MOUSEBUTTONDOWN:
-                # print(random.random())
-                
                 if (currentScene == Scene.GAME_SCENE):
-                    mole.processInput(m_x, m_y)
-                    mole2.processInput(m_x, m_y)
-                    mole3.processInput(m_x, m_y)
+                    mole.processInput(m_x, m_y, hammer)
+                    mole2.processInput(m_x, m_y, hammer)
+                    mole3.processInput(m_x, m_y, hammer)
                     if (bomb.visible and isTouchOnRect(m_x, m_y, bomb.x-20, bomb.y-20, bomb.width+40, bomb.height+40)):
                         gameOver = True
                         mixer.Sound.play(explode_sound)
+                        hammer.hit(bomb.ground.idx, bomb.ground.idy)
                 elif (currentScene == Scene.MENU_SCENE):
                     if isTouchOnRect(m_x, m_y, playButton.x, playButton.y, PLAY_BUTTON_WIDTH, PLAY_BUTTON_HEIGHT):
                         gameOver = False
@@ -529,6 +578,7 @@ def main():
         escapeLabel.update()
         timeLabel.update()
         playButton.update()
+        hammer.update()
         if (gameOver and currentScene == Scene.GAME_SCENE):
             timeLabel.stop()
             playButton.visible = True
