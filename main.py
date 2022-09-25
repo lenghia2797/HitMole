@@ -9,6 +9,8 @@ import random
 from enum import Enum
 from pygame import mixer
 
+from spritesheet import SpriteSheet
+
 pygame.init()
 SCREEN_WIDTH = 960
 SCREEN_HEIGHT = 540
@@ -43,6 +45,7 @@ time_over_image = pygame.image.load(r'./images/timeover.png')
 background_image = pygame.image.load(r'./images/background.jpeg')
 
 wick_sprite = pygame.image.load(r'./images/wick.png').convert_alpha()
+wick_sprite_sheet = SpriteSheet(wick_sprite)
 
 # load sound
 mixer.init()
@@ -82,8 +85,16 @@ BOMB_WIDTH = 106
 BOMB_HEIGHT = 97
 TIME_OVER_WIDTH = 700/2
 TIME_OVER_HEIGHT = 204/2
+WICK_FRAME_WIDTH = 90
+WICK_FRAME_HEIGHT = 90
 
 time_over_image = pygame.transform.scale(time_over_image, (TIME_OVER_WIDTH, TIME_OVER_HEIGHT))
+
+wick_0_image = wick_sprite_sheet.get_image(0, WICK_FRAME_WIDTH, WICK_FRAME_HEIGHT, 1, BLACK)
+wick_1_image = wick_sprite_sheet.get_image(1, WICK_FRAME_WIDTH, WICK_FRAME_HEIGHT, 1, BLACK)
+wick_2_image = wick_sprite_sheet.get_image(2, WICK_FRAME_WIDTH, WICK_FRAME_HEIGHT, 1, BLACK)
+wick_3_image = wick_sprite_sheet.get_image(3, WICK_FRAME_WIDTH, WICK_FRAME_HEIGHT, 1, BLACK)
+wick_4_image = wick_sprite_sheet.get_image(4, WICK_FRAME_WIDTH, WICK_FRAME_HEIGHT, 1, BLACK)
 
 class Grid:
     def __init__(self, row, col):
@@ -203,6 +214,8 @@ class Mole:
         self.rawX = 0
         self.width = MOLE_WIDTH
         self.height = MOLE_HEIGHT
+        self.wick_image = wick_0_image
+        self.isWick = False
         if (type == MoleType.NORMAL):
             self.image = mole1_image
             self.rect = mole1_image.get_rect()
@@ -224,8 +237,11 @@ class Mole:
         self.lastWaiting = pygame.time.get_ticks()
         self.lastTeleport = pygame.time.get_ticks()
         self.lastShake = pygame.time.get_ticks()
+        self.lastWick = pygame.time.get_ticks()
+        self.lastFrameWick = pygame.time.get_ticks()
         self.shakeTime = 200
         self.waitingTime = 1500
+        self.wick_index = 0
         self.resetTeleportTime()
         self.respawn()  
         
@@ -247,6 +263,8 @@ class Mole:
                 screen.blit(self.eye, (self.x + 17, self.y + 24))
             if (self.isHaveHat and self.y < self.ground.y):
                 screen.blit(self.hard_hat, (self.x + 8, self.y - 15))
+            if (self.isWick and self.y < self.ground.y):
+                screen.blit(self.wick_image , (self.x, self.y - WICK_FRAME_WIDTH/2))
             
     def teleport(self):
         groundNoMoles = list(filter(lambda x: not x.haveMole, self.grid.grounds))
@@ -275,6 +293,9 @@ class Mole:
         self.changeModeToHidden()
         self.isDead = False
         self.isShake = False
+        self.isWick = False
+        self.wick_index = 0
+        self.wick_image = wick_0_image
         self.teleport()
         if (random.random() < 0.3 and self.type is not MoleType.BOMB):
             self.isHard = True
@@ -289,6 +310,9 @@ class Mole:
         self.ground.haveMole = False
         self.isDead = True
         self.isShake = False
+        self.isWick = False
+        self.wick_index = 0
+        self.wick_image = wick_0_image
 
     def updateFollowStatus(self, deltaTime):
         if (self.status == MoleStatus.HIDDEN):
@@ -300,11 +324,39 @@ class Mole:
         elif (self.status == MoleStatus.WAITING):
             now = pygame.time.get_ticks()
             self.shake(deltaTime)
+            self.wick()
             if now - self.lastWaiting >= self.waitingTime:
                 self.changeModeToExit()
                 EscapeLabel.escape += 1
         elif (self.status == MoleStatus.EXIT):
             self.exit(deltaTime)
+            
+    def wick(self):
+        if (self.isWick):
+            now = pygame.time.get_ticks()
+            if (now - self.lastFrameWick > 50):
+                if (self.wick_index == 0):
+                    self.wick_index = 1
+                    self.wick_image = wick_1_image
+                    self.lastFrameWick = now
+                elif (self.wick_index == 1):
+                    self.wick_index = 2
+                    self.wick_image = wick_2_image
+                    self.lastFrameWick = now
+                elif (self.wick_index == 2):
+                    self.wick_index = 3
+                    self.wick_image = wick_3_image
+                    self.lastFrameWick = now
+                elif (self.wick_index == 3):
+                    self.wick_index = 4
+                    self.wick_image = wick_4_image
+                    self.lastFrameWick = now
+                elif (self.wick_index == 4):
+                    self.wick_index = 0
+                    self.wick_image = wick_0_image
+                    self.lastFrameWick = now
+            if (now - self.lastWick > 500):
+                self.isWick = False
             
     def shake(self, deltaTime):
         if (self.isShake):
@@ -323,10 +375,14 @@ class Mole:
     def getHit(self):
         mixer.Sound.play(swing_sound)
         self.lives -= 1
+        
         if (self.isHaveHat):
             mixer.Sound.play(wood_hit_sound)
             self.isShake = True
             self.lastShake = pygame.time.get_ticks()
+            self.isWick = True
+            self.lastWick = pygame.time.get_ticks()
+            self.lastFrameWick = pygame.time.get_ticks()
         if (self.lives <= 0 and not self.isDead):
             self.dead()
         if (self.isDead):
