@@ -50,6 +50,9 @@ wick_sprite_sheet = SpriteSheet(wick_sprite)
 hammer_sprite = pygame.image.load(r'./images/hammer.png').convert_alpha()
 hammer_sprite_sheet = SpriteSheet(hammer_sprite)
 
+explode_sprite = pygame.image.load(r'./images/explosion.png').convert_alpha()
+explode_sprite_sheet = SpriteSheet(explode_sprite)
+
 # load sound
 mixer.init()
 mixer.music.set_volume(0.1)
@@ -92,6 +95,8 @@ WICK_FRAME_WIDTH = 90
 WICK_FRAME_HEIGHT = 90
 HAMMER_FRAME_WIDTH = 237
 HAMMER_FRAME_HEIGHT = 212
+EXPLODE_FRAME_WIDTH = 178
+EXPLODE_FRAME_HEIGHT = 178
 
 time_over_image = pygame.transform.scale(time_over_image, (TIME_OVER_WIDTH, TIME_OVER_HEIGHT))
 
@@ -107,6 +112,15 @@ hammer_2_image = hammer_sprite_sheet.get_image(2, HAMMER_FRAME_WIDTH, HAMMER_FRA
 hammer_3_image = hammer_sprite_sheet.get_image(3, HAMMER_FRAME_WIDTH, HAMMER_FRAME_HEIGHT, 1, BLACK)
 hammer_4_image = hammer_sprite_sheet.get_image(4, HAMMER_FRAME_WIDTH, HAMMER_FRAME_HEIGHT, 1, BLACK)
 hammer_5_image = hammer_sprite_sheet.get_image(5, HAMMER_FRAME_WIDTH, HAMMER_FRAME_HEIGHT, 1, BLACK)
+
+explode_0_image = explode_sprite_sheet.get_image(0, EXPLODE_FRAME_WIDTH, EXPLODE_FRAME_HEIGHT, 1, BLACK)
+explode_1_image = explode_sprite_sheet.get_image(1, EXPLODE_FRAME_WIDTH, EXPLODE_FRAME_HEIGHT, 1, BLACK)
+explode_2_image = explode_sprite_sheet.get_image(2, EXPLODE_FRAME_WIDTH, EXPLODE_FRAME_HEIGHT, 1, BLACK)
+explode_3_image = explode_sprite_sheet.get_image(3, EXPLODE_FRAME_WIDTH, EXPLODE_FRAME_HEIGHT, 1, BLACK)
+explode_4_image = explode_sprite_sheet.get_image(4, EXPLODE_FRAME_WIDTH, EXPLODE_FRAME_HEIGHT, 1, BLACK)
+explode_5_image = explode_sprite_sheet.get_image(5, EXPLODE_FRAME_WIDTH, EXPLODE_FRAME_HEIGHT, 1, BLACK)
+explode_6_image = explode_sprite_sheet.get_image(6, EXPLODE_FRAME_WIDTH, EXPLODE_FRAME_HEIGHT, 1, BLACK)
+explode_7_image = explode_sprite_sheet.get_image(7, EXPLODE_FRAME_WIDTH, EXPLODE_FRAME_HEIGHT, 1, BLACK)
 
 class Ground:
     def __init__(self, idx, idy):
@@ -300,6 +314,9 @@ class Mole:
         self.height = MOLE_HEIGHT
         self.wick_animation = Animation([wick_0_image, wick_1_image, wick_2_image, wick_3_image, wick_4_image],
                                         500, 0)
+        self.explode_animation = Animation([explode_0_image, explode_1_image, explode_2_image, explode_3_image, 
+                                            explode_4_image, explode_5_image, explode_6_image, explode_7_image],
+                                           500, 0)
         if (type == MoleType.NORMAL):
             self.image = mole1_image
             self.rect = mole1_image.get_rect()
@@ -341,17 +358,25 @@ class Mole:
             self.onHit = False
             self.getHit()
         self.updateFollowStatus(deltaTime)
+        self.explode_animation.update()
         self.render()
     
     def render(self):
         if self.visible:
-            screen.blit(self.image, (self.x, self.y), (0, 0, self.width, 1 - (self.y - self.ground.y - self.height*0.5)))
+            if (self.type == MoleType.BOMB):
+                screen.blit(self.image, (self.x + 15, self.y), (0, 0, self.width, 1 - (self.y - self.ground.y - self.height*0.5)))
+            else:
+                screen.blit(self.image, (self.x, self.y), (0, 0, self.width, 1 - (self.y - self.ground.y - self.height*0.5)))
             if (self.isDead and self.y < self.ground.y):
                 screen.blit(self.eye, (self.x + 17, self.y + 24))
             if (self.isHaveHat and self.y < self.ground.y):
                 screen.blit(self.hard_hat, (self.x + 8, self.y - 15))
             if (self.wick_animation.isRun and self.y < self.ground.y):
                 screen.blit(self.wick_animation.currentFrame , (self.x, self.y - WICK_FRAME_WIDTH/2))
+            
+    def render_explode_animation(self):
+        if (self.explode_animation.isRun):
+            screen.blit(self.explode_animation.currentFrame, (self.x - 29, self.y - 44))
             
     def teleport(self):
         groundNoMoles = list(filter(lambda x: not x.haveMole, self.grid.grounds))
@@ -528,6 +553,8 @@ def main():
     lastTime = pygame.time.get_ticks()
     deltaTime = 0
     
+    lastTimeExplode = pygame.time.get_ticks()
+    
     mixer.music.play(-1)
     while running:
         clock.tick(FPS)
@@ -544,7 +571,7 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
             if event.type == pygame.MOUSEBUTTONDOWN:
-                if (currentScene == Scene.GAME_SCENE):
+                if (currentScene == Scene.GAME_SCENE and not gameOver):
                     mole.processInput(m_x, m_y, hammer)
                     mole2.processInput(m_x, m_y, hammer)
                     mole3.processInput(m_x, m_y, hammer)
@@ -552,6 +579,10 @@ def main():
                         gameOver = True
                         mixer.Sound.play(explode_sound)
                         hammer.hit(bomb.ground.idx, bomb.ground.idy)
+                        bomb.visible = False
+                        bomb.explode_animation.run()
+                        bomb.changeModeToNotStart()
+                        lastTimeExplode = pygame.time.get_ticks()
                 elif (currentScene == Scene.MENU_SCENE):
                     if isTouchOnRect(m_x, m_y, playButton.x, playButton.y, PLAY_BUTTON_WIDTH, PLAY_BUTTON_HEIGHT):
                         gameOver = False
@@ -565,12 +596,13 @@ def main():
                         mole3.respawn()
                         bomb.respawn()
                         showTimeOver = False
-        if (currentScene == Scene.GAME_SCENE):
+        if (currentScene == Scene.GAME_SCENE):                
             mole.update(deltaTime)
             mole2.update(deltaTime)
             mole3.update(deltaTime)
             bomb.update(deltaTime)
             grid.update()
+            bomb.render_explode_animation()
             if (timeLabel.timeLeft <= 0):
                 gameOver = True
                 showTimeOver = True
@@ -580,14 +612,16 @@ def main():
         playButton.update()
         hammer.update()
         if (gameOver and currentScene == Scene.GAME_SCENE):
-            timeLabel.stop()
-            playButton.visible = True
-            mole.destroy()
-            mole2.destroy()
-            mole3.destroy()
-            bomb.destroy()
-            currentScene = Scene.MENU_SCENE
-            gameOver = False
+            if (not bomb.explode_animation.isRun or 
+                (bomb.explode_animation.isRun and pygame.time.get_ticks() - lastTimeExplode > 500)):
+                timeLabel.stop()
+                playButton.visible = True
+                mole.destroy()
+                mole2.destroy()
+                mole3.destroy()
+                bomb.destroy()
+                currentScene = Scene.MENU_SCENE
+                gameOver = False
         
         if showTimeOver:
             screen.blit(time_over_image, (SCREEN_WIDTH/2 - TIME_OVER_WIDTH/2, SCREEN_HEIGHT/2 - TIME_OVER_HEIGHT/2 - 100))
