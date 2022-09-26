@@ -98,6 +98,11 @@ HAMMER_FRAME_HEIGHT = 212
 EXPLODE_FRAME_WIDTH = 178
 EXPLODE_FRAME_HEIGHT = 178
 
+SCORE_LABEL_X = 100
+SCORE_LABEL_Y = 150
+PADDING_LABEL = 75
+COLOR_TEXT = (204, 102, 255)
+
 time_over_image = pygame.transform.scale(time_over_image, (TIME_OVER_WIDTH, TIME_OVER_HEIGHT))
 
 wick_0_image = wick_sprite_sheet.get_image(0, WICK_FRAME_WIDTH, WICK_FRAME_HEIGHT, 1, BLACK)
@@ -159,45 +164,63 @@ class Grid:
         for ground in self.grounds:
             if ground.idx == row and ground.idy == col:
                 return ground.x, ground.y
+            
+class Label:
+    pass
 
 class ScoreLabel:
     score = 0
     def __init__(self):
-        self.text = font.render(f'Score: {ScoreLabel.score}', True, COLOR1, WHITE)
+        self.text = font.render(f'Score: {ScoreLabel.score}', True, COLOR_TEXT)
         self.textRect = self.text.get_rect()
-        self.textRect.center = (100, 100)
+        self.textRect.center = (SCORE_LABEL_X, SCORE_LABEL_Y)
         
     def update(self):
         self.render()
     
     def render(self):
-        self.text = font.render(f'Score: {ScoreLabel.score}', True, COLOR1, WHITE)
+        self.text = font.render(f'Score: {ScoreLabel.score}', True, COLOR_TEXT)
         
-        screen.blit(self.text, self.textRect)
+        screen.blit(self.text, (self.textRect.x + self.textRect.width/2 - 50, self.textRect.y))
         
 class EscapeLabel:
     escape = 0
     def __init__(self):
-        self.text = font.render(f'Escape: {EscapeLabel.escape}', True, COLOR1, WHITE)
+        self.text = font.render(f'Escaped: {EscapeLabel.escape}', True, COLOR_TEXT)
         self.textRect = self.text.get_rect()
-        self.textRect.center = (100, 200)
+        self.textRect.center = (SCORE_LABEL_X, SCORE_LABEL_Y + PADDING_LABEL*2)
         
     def update(self):
         self.render()
     
     def render(self):
-        self.text = font.render(f'Escape: {EscapeLabel.escape}', True, COLOR1, WHITE)
+        self.text = font.render(f'Escaped: {EscapeLabel.escape}', True, COLOR_TEXT)
         
-        screen.blit(self.text, self.textRect)
+        screen.blit(self.text, (self.textRect.x + self.textRect.width/2 - 50, self.textRect.y))
+        
+class AccuracyLabel:
+    accuracy = 0
+    def __init__(self):
+        self.text = font.render(f'Accuracy: {AccuracyLabel.accuracy}', True, COLOR_TEXT)
+        self.textRect = self.text.get_rect()
+        self.textRect.center = (SCORE_LABEL_X, SCORE_LABEL_Y + PADDING_LABEL*3)
+        
+    def update(self):
+        self.render()
+    
+    def render(self):
+        self.text = font.render(f'Accuracy: {AccuracyLabel.accuracy} %', True, COLOR_TEXT)
+        
+        screen.blit(self.text, (self.textRect.x + self.textRect.width/2 - 50, self.textRect.y))
 
 class TimeLabel:
     def __init__(self, maxTime):
         self.maxTime = maxTime
         self.timeLeft = maxTime
         self.lastSecond = pygame.time.get_ticks()
-        self.text = font.render(f'Time: {self.timeLeft}', True, COLOR1, WHITE)
+        self.text = font.render(f'Time: {self.timeLeft}', True, COLOR_TEXT)
         self.textRect = self.text.get_rect()
-        self.textRect.center = (100, 300)
+        self.textRect.center = (SCORE_LABEL_X, SCORE_LABEL_Y + PADDING_LABEL)
         self.isRun = False
         
     def update(self):
@@ -212,9 +235,9 @@ class TimeLabel:
                 self.timeLeft -= 1
 
     def render(self):
-        self.text = font.render(f'Time: {self.timeLeft}', True, COLOR1, WHITE)
+        self.text = font.render(f'Time: {self.timeLeft}', True, COLOR_TEXT)
         
-        screen.blit(self.text, self.textRect)
+        screen.blit(self.text, (self.textRect.x + self.textRect.width/2 - 50, self.textRect.y))
         
     def resetTime(self):
         self.timeLeft = self.maxTime
@@ -435,7 +458,8 @@ class Mole:
             self.wick_animation.update()
             if now - self.lastWaiting >= self.waitingTime:
                 self.changeModeToExit()
-                EscapeLabel.escape += 1
+                if (self.type == MoleType.BOMB):
+                    EscapeLabel.escape += 1
         elif (self.status == MoleStatus.EXIT):
             self.exit(deltaTime)
             
@@ -508,14 +532,16 @@ class Mole:
         self.status = MoleStatus.NOT_START
         
     def processInput(self, m_x, m_y, hammer):
-        if (self.visible and isTouchOnRect(m_x, m_y, self.x-20, self.y-20, self.width+40, self.height+40)):
+        if (not self.isDead and self.visible and isTouchOnRect(m_x, m_y, self.x-20, self.y-20, self.width+40, self.height+40)):
             self.onHit = True
             self.lastHit = pygame.time.get_ticks()
             hammer.hit(self.ground.idx, self.ground.idy)
+            return 1
+        return 0
 
 class PlayButton:
     def __init__(self):
-        self.x = SCREEN_WIDTH/2 - PLAY_BUTTON_WIDTH/2
+        self.x = SCREEN_WIDTH/2 - PLAY_BUTTON_WIDTH/2 + 50
         self.y = SCREEN_HEIGHT*0.6
         self.visible = True
         
@@ -545,10 +571,14 @@ def main():
     clock = pygame.time.Clock()
     scoreLabel = ScoreLabel()
     escapeLabel = EscapeLabel()
+    accuracyLabel = AccuracyLabel()
     timeLabel = TimeLabel(15)
     playButton = PlayButton()
     hammer = Hammer(0, 0, grid)
     FPS = 20
+    
+    total_hit = 0
+    right_hit = 0
     
     lastTime = pygame.time.get_ticks()
     deltaTime = 0
@@ -572,9 +602,10 @@ def main():
                 running = False
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if (currentScene == Scene.GAME_SCENE and not gameOver):
-                    mole.processInput(m_x, m_y, hammer)
-                    mole2.processInput(m_x, m_y, hammer)
-                    mole3.processInput(m_x, m_y, hammer)
+                    total_hit += 1
+                    right_hit += mole.processInput(m_x, m_y, hammer)
+                    right_hit += mole2.processInput(m_x, m_y, hammer)
+                    right_hit += mole3.processInput(m_x, m_y, hammer)
                     if (bomb.visible and isTouchOnRect(m_x, m_y, bomb.x-20, bomb.y-20, bomb.width+40, bomb.height+40)):
                         gameOver = True
                         mixer.Sound.play(explode_sound)
@@ -607,8 +638,10 @@ def main():
                 gameOver = True
                 showTimeOver = True
         scoreLabel.update()
-        escapeLabel.update()
         timeLabel.update()
+        if (currentScene == Scene.MENU_SCENE):
+            escapeLabel.update()
+            accuracyLabel.update()
         playButton.update()
         hammer.update()
         if (gameOver and currentScene == Scene.GAME_SCENE):
@@ -622,9 +655,17 @@ def main():
                 bomb.destroy()
                 currentScene = Scene.MENU_SCENE
                 gameOver = False
+                print(total_hit, right_hit)
+                if (total_hit == 0):
+                    AccuracyLabel.accuracy = 0
+                else:
+                    AccuracyLabel.accuracy = math.floor(right_hit/total_hit * 10000)/100.0
+                total_hit = 0
+                right_hit = 0
+                    
         
         if showTimeOver:
-            screen.blit(time_over_image, (SCREEN_WIDTH/2 - TIME_OVER_WIDTH/2, SCREEN_HEIGHT/2 - TIME_OVER_HEIGHT/2 - 100))
+            screen.blit(time_over_image, (SCREEN_WIDTH/2 - TIME_OVER_WIDTH/2 + 50, SCREEN_HEIGHT/2 - TIME_OVER_HEIGHT/2 - 100))
             
         pygame.display.flip()
     pygame.quit()
