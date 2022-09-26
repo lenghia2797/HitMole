@@ -584,6 +584,7 @@ def main():
     deltaTime = 0
     
     lastTimeExplode = pygame.time.get_ticks()
+    lastTimeShowPlay = pygame.time.get_ticks()
     
     mixer.music.play(-1)
     while running:
@@ -615,7 +616,7 @@ def main():
                         bomb.changeModeToNotStart()
                         lastTimeExplode = pygame.time.get_ticks()
                 elif (currentScene == Scene.MENU_SCENE):
-                    if isTouchOnRect(m_x, m_y, playButton.x, playButton.y, PLAY_BUTTON_WIDTH, PLAY_BUTTON_HEIGHT):
+                    if ((pygame.time.get_ticks() - lastTimeShowPlay > 700) and isTouchOnRect(m_x, m_y, playButton.x, playButton.y, PLAY_BUTTON_WIDTH, PLAY_BUTTON_HEIGHT)):
                         gameOver = False
                         currentScene = Scene.GAME_SCENE
                         timeLabel.resetTime()
@@ -642,20 +643,21 @@ def main():
         if (currentScene == Scene.MENU_SCENE):
             escapeLabel.update()
             accuracyLabel.update()
-        playButton.update()
+        if (pygame.time.get_ticks() - lastTimeShowPlay > 700):
+            playButton.update()
         hammer.update()
         if (gameOver and currentScene == Scene.GAME_SCENE):
             if (not bomb.explode_animation.isRun or 
                 (bomb.explode_animation.isRun and pygame.time.get_ticks() - lastTimeExplode > 500)):
                 timeLabel.stop()
                 playButton.visible = True
+                lastTimeShowPlay = pygame.time.get_ticks()
                 mole.destroy()
                 mole2.destroy()
                 mole3.destroy()
                 bomb.destroy()
                 currentScene = Scene.MENU_SCENE
                 gameOver = False
-                print(total_hit, right_hit)
                 if (total_hit == 0):
                     AccuracyLabel.accuracy = 0
                 else:
