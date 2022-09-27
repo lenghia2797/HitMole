@@ -218,7 +218,7 @@ class TitleLabel:
     def __init__(self):
         self.text = font.render(f'{TitleLabel.title}', True, COLOR_TEXT)
         self.textRect = self.text.get_rect()
-        self.textRect.center = (SCORE_LABEL_X, SCORE_LABEL_Y + PADDING_LABEL*4)
+        self.textRect.center = (SCREEN_WIDTH/2, SCREEN_HEIGHT/2)
         
     def update(self):
         self.render()
@@ -226,7 +226,7 @@ class TitleLabel:
     def render(self):
         self.text = font.render(f'{TitleLabel.title}', True, COLOR_TEXT)
         
-        screen.blit(self.text, (SCREEN_WIDTH/2 - self.textRect.width/2 - 70, SCREEN_HEIGHT/2 - self.textRect.height/2))
+        screen.blit(self.text, (self.textRect.x - self.textRect.width/2, SCREEN_HEIGHT/2 - self.textRect.height/2))
 
 class TimeLabel:
     def __init__(self, maxTime):
