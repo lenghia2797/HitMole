@@ -585,6 +585,8 @@ def getTitle():
         return 'Con non va xanh lam'
     elif (ScoreLabel.score > 20 and AccuracyLabel.accuracy > 65):
         return 'Vi vua day xa hoi'
+    elif (ScoreLabel.score > 20 and AccuracyLabel.accuracy > 60):
+        return 'Hoi non'
     else:
         return 'Ga cong nghiep'
 
