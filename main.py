@@ -212,6 +212,21 @@ class AccuracyLabel:
         self.text = font.render(f'Accuracy: {AccuracyLabel.accuracy} %', True, COLOR_TEXT)
         
         screen.blit(self.text, (self.textRect.x + self.textRect.width/2 - 50, self.textRect.y))
+        
+class TitleLabel:
+    title = ''
+    def __init__(self):
+        self.text = font.render(f'{TitleLabel.title}', True, COLOR_TEXT)
+        self.textRect = self.text.get_rect()
+        self.textRect.center = (SCORE_LABEL_X, SCORE_LABEL_Y + PADDING_LABEL*4)
+        
+    def update(self):
+        self.render()
+    
+    def render(self):
+        self.text = font.render(f'{TitleLabel.title}', True, COLOR_TEXT)
+        
+        screen.blit(self.text, (SCREEN_WIDTH/2 - self.textRect.width/2 - 70, SCREEN_HEIGHT/2 - self.textRect.height/2))
 
 class TimeLabel:
     def __init__(self, maxTime):
@@ -557,6 +572,22 @@ def isTouchOnRect(x, y, rectX, rectY, rectWidth, rectHeight):
         return True
     return False
 
+def getTitle():
+    if (AccuracyLabel.accuracy < 60):
+        return 'Chien than dap truot'
+    if (ScoreLabel.score > 35):
+        return 'Chien than'
+    if (ScoreLabel.score > 30 and AccuracyLabel.accuracy > 80):
+        return 'Ong hoang dap chuot'
+    elif (ScoreLabel.score > 25 and AccuracyLabel.accuracy > 75):
+        return 'Co co gang'
+    elif (ScoreLabel.score > 20 and AccuracyLabel.accuracy > 70):
+        return 'Con non va xanh lam'
+    elif (ScoreLabel.score > 20 and AccuracyLabel.accuracy > 65):
+        return 'Vi vua day xa hoi'
+    else:
+        return 'Ga cong nghiep'
+
 def main():
     currentScene = Scene.MENU_SCENE
     showTimeOver = False
@@ -573,6 +604,7 @@ def main():
     escapeLabel = EscapeLabel()
     accuracyLabel = AccuracyLabel()
     timeLabel = TimeLabel(15)
+    titleLabel = TitleLabel()
     playButton = PlayButton()
     hammer = Hammer(0, 0, grid)
     FPS = 20
@@ -628,6 +660,7 @@ def main():
                         mole3.respawn()
                         bomb.respawn()
                         showTimeOver = False
+                        TitleLabel.title = ''
         if (currentScene == Scene.GAME_SCENE):                
             mole.update(deltaTime)
             mole2.update(deltaTime)
@@ -643,6 +676,7 @@ def main():
         if (currentScene == Scene.MENU_SCENE):
             escapeLabel.update()
             accuracyLabel.update()
+            titleLabel.update()
         if (pygame.time.get_ticks() - lastTimeShowPlay > 700):
             playButton.update()
         hammer.update()
@@ -664,6 +698,7 @@ def main():
                     AccuracyLabel.accuracy = math.floor(right_hit/total_hit * 10000)/100.0
                 total_hit = 0
                 right_hit = 0
+                TitleLabel.title = getTitle()
                     
         
         if showTimeOver:
